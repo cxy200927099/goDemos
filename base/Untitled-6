@@ -1,0 +1,6 @@
+07-06 14:34:55.532 523-551/? I/WX_FACE_DETECT_JNI: ++++ unclusteredSize=4
+07-06 14:34:55.534 523-551/? I/WX_FACE_DETECT_JNI: ++++ 2222222
+    ++++ 3333333
+07-06 14:34:55.535 523-551/? E/cv::error(): OpenCV Error: Assertion failed ((globalDescIdx>=0) && (globalDescIdx < size())) in void cv::DescriptorMatcher::DescriptorCollection::getLocalIdx(int, int&, int&) const, file /build/master_pack-android/opencv/modules/features2d/src/matchers.cpp, line 488
+    uint32_t n_f = features_->count();
+    flann.knnMatch(features_mat, features_mat, matches, std::min(n_f, (const uint32_t&)k_ + 1) );
