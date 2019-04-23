@@ -114,6 +114,27 @@ func TestGetEnv(){
 	fmt.Println("vLevel=",vLevel)
 }
 
+func TestCalcute(){
+
+	//总量特征 =10 * 10000 * 1.5 * 60 * 60 * 24
+	total := 12960000000
+	//查询特征 = 1.5 * 60 * 60 * 24 = 129600
+	query := 129600
+
+
+	now := time.Now()
+	nanoStart := now.Nanosecond()
+	for i:=0 ; i < total; i++{
+		for j:=0; j<query; j++{
+			//doNothing
+		}
+	}
+	now = time.Now()
+	nanoEnd := now.Nanosecond()
+	ts := nanoEnd - nanoStart
+	fmt.Println("ts(ms)=",ts/1000000," ts(nano)=",ts)
+}
+
 func main() {
 	//var curDir = GetCurrentDirectory()
 	//fmt.Println("current dir=", curDir)
@@ -125,7 +146,7 @@ func main() {
 	////addr := ":"+string(80)
 	//fmt.Println("listen port-", addr)
 
-	//testGetTime()
+	testGetTime()
 
 	//t1 := uint64(1200)
 	//t2 := float32(23.976)
@@ -136,5 +157,16 @@ func main() {
 
 	//TestString()
 
-	TestGetEnv()
+	//TestGetEnv()
+
+	//testA :=10
+	//testB := testA >> 5
+	//fmt.Println("testA=",testA)
+	//fmt.Println("testA >> 2=",testB)
+
+	//TestCalcute()
+
+	//s := 0.5
+	//f_s := 1 - math.Pow((1 - math.Pow(s, 28)), 20)
+	//fmt.Println("s=",s," f_s=",f_s)
 }
