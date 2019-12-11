@@ -1,12 +1,15 @@
-package main
+package n63
 
 import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/axgle/mahonia"
+	"github.com/cihub/seelog"
 	"github.com/gocolly/colly"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -18,25 +21,32 @@ const (
 	KEY_SECOND_KEY string = "secondKey"
 )
 
-type JobItem struct {
-	DirKey string
-	DirName string
-	PicUrl	string
-}
-
 //save the stars key and name
 var starsNameMap = make(map[string]string)
 var starsCountMap = make(map[string]int64)
+
+const REQ_URL ="http://www.n63.com/photodir/china.htm"
+const URL_SPLIT ="n63.com"
+var parent_dir=""
+
+
+func GetCurrentDirectory() string {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		seelog.Error(err)
+	}
+	return strings.Replace(dir, "\\", "/", -1)
+}
 
 func convert2Enoder(input string, encoder string) string{
 	enc := mahonia.NewEncoder(encoder)
 	return enc.ConvertString(input)
 }
 
-func getKeyFromUrl(url string, label string) (string, error){
-	strs := strings.Split(url, label)
+func getParentNameFromUrl(url string)(string, error){
+	strs := strings.Split(url, URL_SPLIT)
 	if len(strs) != 2{
-		return "", errors.New(fmt.Sprintf("getKeyFromUrl failed! url:%s label:%s\n", url, label))
+		return "", errors.New(fmt.Sprintf("getParentNameFromUrl failed! url:%s label:%s\n", url, URL_SPLIT))
 	}
 	subStrs := strings.Split(strs[1], "/")
 	keyName := subStrs[1]
@@ -44,20 +54,31 @@ func getKeyFromUrl(url string, label string) (string, error){
 	return keyName, nil
 }
 
-func getSecondKeyFromUrl(url string, label string) (string, error){
-	strs := strings.Split(url, label)
+func getKeyFromUrl(url string) (string, error){
+	strs := strings.Split(url, URL_SPLIT)
 	if len(strs) != 2{
-		return "", errors.New(fmt.Sprintf("getSecondKeyFromUrl failed! url:%s label:%s\n", url, label))
+		return "", errors.New(fmt.Sprintf("getKeyFromUrl failed! url:%s label:%s\n", url, URL_SPLIT))
+	}
+	subStrs := strings.Split(strs[1], "/")
+	keyName := subStrs[2]
+
+	return keyName, nil
+}
+
+func getSecondKeyFromUrl(url string) (string, error){
+	strs := strings.Split(url, URL_SPLIT)
+	if len(strs) != 2{
+		return "", errors.New(fmt.Sprintf("getSecondKeyFromUrl failed! url:%s label:%s\n", url, URL_SPLIT))
 	}
 
 	return strs[1], nil
 }
 
-func parsePicListOfStars(url string){
+func Start() {
 
-}
+	//Init downloadManager
+	InitDownloadManager()
 
-func main() {
 	// Instantiate default collector
 	c := colly.NewCollector()
 	//不设置中文网页抓取的text是乱码
@@ -74,8 +95,20 @@ func main() {
 					name := a.Text()
 					name = convert2Enoder(name, "utf-8")
 					absUrl := e.Request.AbsoluteURL(attr)
-					keyName, _ := getKeyFromUrl(absUrl, "n_china")
-					secondKeyName, _ := getSecondKeyFromUrl(absUrl, "n_china")
+					keyName, _ := getKeyFromUrl(absUrl)
+					secondKeyName, _ := getSecondKeyFromUrl(absUrl)
+					parent_dir, _ = getParentNameFromUrl(absUrl)
+					if parent_dir == ""{
+						log.Fatalf("page1 get parentDir failed! url:%s", absUrl)
+						return
+					}
+
+					if name != "壁纸"{
+						_, exist := starsNameMap[keyName]
+						if !exist{
+							starsNameMap[keyName] = name
+						}
+					}
 					//log.Printf("td->a: %d ->%s %s %s\n", i, absUrl, convert2Enoder(name, "utf-8"), keyName)
 					//访问第二页
 					e.Request.Ctx.Put(KEY_DIR_KEY, keyName)
@@ -90,12 +123,12 @@ func main() {
 					if !exist{
 						starsCountMap[keyName] = 0
 					}
-					if keyName == "2R" {
+					//if keyName == "2R" {
 						log.Printf("page1:%s name:%s keyName:%s secondKey:%s\n", absUrl, name, keyName, secondKeyName)
 						//e.Request.Visit(absUrl)
 						c.Request("GET", absUrl, nil, ctx, nil)
 						//c.Visit(absUrl)
-					}
+					//}
 				}else{
 					log.Printf("page1: %d -> empty a\n", i)
 				}
@@ -197,14 +230,20 @@ func main() {
 	c.OnHTML("div#image_show", func(e *colly.HTMLElement) {
 		parentUrl := e.Request.URL.String()
 		dirKey := e.Request.Ctx.Get(KEY_DIR_KEY)
-		dirName := e.Request.Ctx.Get(KEY_DIR_NAME)
+		//dirName := e.Request.Ctx.Get(KEY_DIR_NAME)
+		dirName, exist := starsNameMap[dirKey]
+		if !exist{
+			log.Fatalf("page3 Error get dirName failed dirKey:%s", dirKey)
+			return
+		}
+
 		if dirKey == "" || dirName == ""{
-			log.Fatalf("Error third page:%s", parentUrl)
+			log.Fatalf("page3 Error third page:%s", parentUrl)
 			return
 		}
 		secondKey := e.Request.Ctx.Get(KEY_SECOND_KEY)
 		if secondKey == ""{
-			log.Fatalf("get SecondKey From context failed! url:%s\n", parentUrl)
+			log.Fatalf("page3 get SecondKey From context failed! url:%s\n", parentUrl)
 		}
 		e.DOM.Find("img").Each(func(i int, selection *goquery.Selection) {
 			tmpUrl, _ := selection.Attr("src")
@@ -217,7 +256,16 @@ func main() {
 				starsCountMap[dirKey] = curCnt+1
 			}
 
-			log.Printf("page3 poster total:%d dirName:%s secondKey:%s url:%s\n",curCnt, dirName, secondKey, posterUrl)
+			//log.Printf("page3 poster total:%d dirName:%s secondKey:%s url:%s\n",curCnt, dirName, secondKey, posterUrl)
+			jobItem := new(JobItem)
+			jobItem.PicUrl = posterUrl
+			jobItem.DirKey = dirKey
+
+			fileName :=fmt.Sprintf("%d.jpg",time.Now().UnixNano())
+			absPath := GetCurrentDirectory()+"/"+parent_dir+"/"+dirName+"/"+fileName
+			jobItem.DirName = absPath
+
+			DownloadJob(jobItem)
 		})
 	})
 
@@ -258,5 +306,5 @@ func main() {
 
 	// Start scraping on http://www.n63.com/photodir/china.htm
 	// 第一页明星列表页面
-	c.Visit("http://www.n63.com/photodir/china.htm")
+	c.Visit(REQ_URL)
 }
